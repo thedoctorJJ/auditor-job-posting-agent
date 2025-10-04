@@ -9,8 +9,9 @@ from typing import List, Optional
 import os
 from dotenv import load_dotenv
 
-from database import get_db, init_database
-from models import Job, AgentMatch, Outreach, JobResponse, AgentMatchResponse, OutreachResponse
+from .database import get_db, init_database
+from .models import Job, AgentMatch, Outreach, JobResponse, AgentMatchResponse, OutreachResponse
+from .email_service import EmailService, generate_outreach_for_all_high_confidence_jobs
 
 load_dotenv()
 
@@ -147,6 +148,38 @@ async def reject_outreach_email(outreach_id: int, db: Session = Depends(get_db))
     db.commit()
     
     return {"message": "Outreach email rejected", "id": outreach_id}
+
+@app.post("/outreach/generate/{job_id}")
+async def generate_outreach_email(job_id: int, firm_contact: Optional[str] = None, db: Session = Depends(get_db)):
+    """Generate outreach email for a specific job"""
+    email_service = EmailService()
+    try:
+        outreach_id = email_service.generate_outreach_for_job(job_id, firm_contact)
+        return {"message": "Outreach email generated", "outreach_id": outreach_id}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/outreach/generate-all")
+async def generate_all_outreach_emails(min_confidence: float = 0.8):
+    """Generate outreach emails for all high-confidence job matches"""
+    try:
+        outreach_ids = generate_outreach_for_all_high_confidence_jobs(min_confidence)
+        return {"message": f"Generated {len(outreach_ids)} outreach emails", "outreach_ids": outreach_ids}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/outreach/{outreach_id}/send")
+async def send_outreach_email(outreach_id: int, db: Session = Depends(get_db)):
+    """Send an approved outreach email"""
+    email_service = EmailService()
+    try:
+        success = email_service.send_approved_outreach(outreach_id)
+        if success:
+            return {"message": "Outreach email sent successfully", "id": outreach_id}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to send email")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 # Statistics endpoints
 @app.get("/stats")

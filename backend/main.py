@@ -1,12 +1,11 @@
 """
 FastAPI main application
 """
+
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from typing import List, Optional
-import os
 from dotenv import load_dotenv
 
 from .database import get_db, init_database
@@ -20,7 +19,7 @@ app = FastAPI(
     description="AI-powered job posting analysis and outreach system",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
 )
 
 # CORS middleware
@@ -33,37 +32,34 @@ app.add_middleware(
 )
 
 # Security
-security = HTTPBearer()
+# security = HTTPBearer()  # Commented out for now
+
 
 # Initialize database on startup
 @app.on_event("startup")
 async def startup_event():
     init_database()
 
+
 @app.get("/")
 async def root():
     """Root endpoint"""
-    return {
-        "message": "Auditor Job Posting Agent API",
-        "version": "1.0.0",
-        "docs": "/docs"
-    }
+    return {"message": "Auditor Job Posting Agent API", "version": "1.0.0", "docs": "/docs"}
+
 
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "service": "auditor-job-posting-agent"}
 
+
 # Job endpoints
 @app.get("/jobs", response_model=List[JobResponse])
-async def get_jobs(
-    skip: int = 0,
-    limit: int = 100,
-    db: Session = Depends(get_db)
-):
+async def get_jobs(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     """Get all job postings with pagination"""
     jobs = db.query(Job).offset(skip).limit(limit).all()
     return jobs
+
 
 @app.get("/jobs/{job_id}", response_model=JobResponse)
 async def get_job(job_id: int, db: Session = Depends(get_db)):
@@ -73,11 +69,13 @@ async def get_job(job_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Job not found")
     return job
 
+
 @app.get("/jobs/{job_id}/matches", response_model=List[AgentMatchResponse])
 async def get_job_matches(job_id: int, db: Session = Depends(get_db)):
     """Get agent matches for a specific job"""
     matches = db.query(AgentMatch).filter(AgentMatch.job_id == job_id).all()
     return matches
+
 
 # Agent match endpoints
 @app.get("/agent-matches", response_model=List[AgentMatchResponse])
@@ -86,36 +84,33 @@ async def get_agent_matches(
     min_confidence: Optional[float] = None,
     skip: int = 0,
     limit: int = 100,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """Get agent matches with optional filtering"""
     query = db.query(AgentMatch)
-    
+
     if agent:
         query = query.filter(AgentMatch.matched_agent == agent)
-    
+
     if min_confidence:
         query = query.filter(AgentMatch.confidence_score >= min_confidence)
-    
+
     matches = query.offset(skip).limit(limit).all()
     return matches
 
+
 # Outreach endpoints
 @app.get("/outreach", response_model=List[OutreachResponse])
-async def get_outreach_emails(
-    status: Optional[str] = None,
-    skip: int = 0,
-    limit: int = 100,
-    db: Session = Depends(get_db)
-):
+async def get_outreach_emails(status: Optional[str] = None, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     """Get outreach emails with optional status filtering"""
     query = db.query(Outreach)
-    
+
     if status:
         query = query.filter(Outreach.status == status)
-    
+
     emails = query.offset(skip).limit(limit).all()
     return emails
+
 
 @app.get("/outreach/{outreach_id}", response_model=OutreachResponse)
 async def get_outreach_email(outreach_id: int, db: Session = Depends(get_db)):
@@ -125,17 +120,19 @@ async def get_outreach_email(outreach_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Outreach email not found")
     return email
 
+
 @app.put("/outreach/{outreach_id}/approve")
 async def approve_outreach_email(outreach_id: int, db: Session = Depends(get_db)):
     """Approve an outreach email for sending"""
     email = db.query(Outreach).filter(Outreach.id == outreach_id).first()
     if not email:
         raise HTTPException(status_code=404, detail="Outreach email not found")
-    
+
     email.status = "approved"
     db.commit()
-    
+
     return {"message": "Outreach email approved", "id": outreach_id}
+
 
 @app.put("/outreach/{outreach_id}/reject")
 async def reject_outreach_email(outreach_id: int, db: Session = Depends(get_db)):
@@ -143,11 +140,12 @@ async def reject_outreach_email(outreach_id: int, db: Session = Depends(get_db))
     email = db.query(Outreach).filter(Outreach.id == outreach_id).first()
     if not email:
         raise HTTPException(status_code=404, detail="Outreach email not found")
-    
+
     email.status = "rejected"
     db.commit()
-    
+
     return {"message": "Outreach email rejected", "id": outreach_id}
+
 
 @app.post("/outreach/generate/{job_id}")
 async def generate_outreach_email(job_id: int, firm_contact: Optional[str] = None, db: Session = Depends(get_db)):
@@ -159,6 +157,7 @@ async def generate_outreach_email(job_id: int, firm_contact: Optional[str] = Non
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
 @app.post("/outreach/generate-all")
 async def generate_all_outreach_emails(min_confidence: float = 0.8):
     """Generate outreach emails for all high-confidence job matches"""
@@ -167,6 +166,7 @@ async def generate_all_outreach_emails(min_confidence: float = 0.8):
         return {"message": f"Generated {len(outreach_ids)} outreach emails", "outreach_ids": outreach_ids}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
 
 @app.post("/outreach/{outreach_id}/send")
 async def send_outreach_email(outreach_id: int, db: Session = Depends(get_db)):
@@ -181,6 +181,7 @@ async def send_outreach_email(outreach_id: int, db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
 # Statistics endpoints
 @app.get("/stats")
 async def get_statistics(db: Session = Depends(get_db)):
@@ -188,37 +189,32 @@ async def get_statistics(db: Session = Depends(get_db)):
     total_jobs = db.query(Job).count()
     total_matches = db.query(AgentMatch).count()
     total_outreach = db.query(Outreach).count()
-    
+
     # Agent distribution
     afc_matches = db.query(AgentMatch).filter(AgentMatch.matched_agent == "AFC").count()
     fsp_matches = db.query(AgentMatch).filter(AgentMatch.matched_agent == "FSP").count()
     other_matches = db.query(AgentMatch).filter(AgentMatch.matched_agent == "other").count()
-    
+
     # Outreach status distribution
     draft_outreach = db.query(Outreach).filter(Outreach.status == "draft").count()
     approved_outreach = db.query(Outreach).filter(Outreach.status == "approved").count()
     sent_outreach = db.query(Outreach).filter(Outreach.status == "sent").count()
     rejected_outreach = db.query(Outreach).filter(Outreach.status == "rejected").count()
-    
+
     return {
-        "jobs": {
-            "total": total_jobs
-        },
-        "agent_matches": {
-            "total": total_matches,
-            "afc": afc_matches,
-            "fsp": fsp_matches,
-            "other": other_matches
-        },
+        "jobs": {"total": total_jobs},
+        "agent_matches": {"total": total_matches, "afc": afc_matches, "fsp": fsp_matches, "other": other_matches},
         "outreach": {
             "total": total_outreach,
             "draft": draft_outreach,
             "approved": approved_outreach,
             "sent": sent_outreach,
-            "rejected": rejected_outreach
-        }
+            "rejected": rejected_outreach,
+        },
     }
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

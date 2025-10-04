@@ -1,6 +1,7 @@
 """
 Database initialization script
 """
+
 from database import init_database
 
 if __name__ == "__main__":

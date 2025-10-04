@@ -1,12 +1,13 @@
 """
 Database connection and session management
 """
+
 import os
+import sys
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-import sys
-import os
+
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from models import Base
@@ -48,16 +49,16 @@ def get_db():
 def init_database():
     """Initialize database with tables and sample data"""
     create_tables()
-    
+
     # Add sample data for testing
     db = SessionLocal()
     try:
         from models import Job, AgentMatch, Outreach
-        
+
         # Check if we already have data
         if db.query(Job).count() > 0:
             return
-        
+
         # Sample job postings
         sample_jobs = [
             Job(
@@ -68,7 +69,7 @@ def init_database():
                 salary_max=120000,
                 description="We are seeking a Senior Auditor to join our team. Responsibilities include conducting financial audits, reviewing internal controls, and preparing audit reports.",
                 url="https://indeed.com/viewjob?jk=sample1",
-                source="indeed"
+                source="indeed",
             ),
             Job(
                 title="Financial Services Professional",
@@ -78,7 +79,7 @@ def init_database():
                 salary_max=100000,
                 description="Join our Financial Services team as a professional. You will work on client engagements, perform financial analysis, and support audit procedures.",
                 url="https://indeed.com/viewjob?jk=sample2",
-                source="indeed"
+                source="indeed",
             ),
             Job(
                 title="Accounting Manager",
@@ -88,15 +89,15 @@ def init_database():
                 salary_max=130000,
                 description="We need an Accounting Manager to oversee our accounting operations, manage financial reporting, and ensure compliance with regulations.",
                 url="https://indeed.com/viewjob?jk=sample3",
-                source="indeed"
-            )
+                source="indeed",
+            ),
         ]
-        
+
         for job in sample_jobs:
             db.add(job)
-        
+
         db.commit()
-        
+
         # Add sample agent matches
         jobs = db.query(Job).all()
         for job in jobs:
@@ -105,7 +106,7 @@ def init_database():
                     job_id=job.id,
                     matched_agent="AFC",
                     confidence_score=0.85,
-                    notes="Strong match for AFC agent - involves financial auditing and compliance work"
+                    notes="Strong match for AFC agent - involves financial auditing and compliance work",
                 )
                 db.add(match)
             elif "financial" in job.title.lower():
@@ -113,7 +114,7 @@ def init_database():
                     job_id=job.id,
                     matched_agent="FSP",
                     confidence_score=0.90,
-                    notes="Excellent match for FSP agent - financial services and analysis focus"
+                    notes="Excellent match for FSP agent - financial services and analysis focus",
                 )
                 db.add(match)
             else:
@@ -121,12 +122,12 @@ def init_database():
                     job_id=job.id,
                     matched_agent="other",
                     confidence_score=0.30,
-                    notes="Limited automation potential - requires human judgment and management skills"
+                    notes="Limited automation potential - requires human judgment and management skills",
                 )
                 db.add(match)
-        
+
         db.commit()
-        
+
         # Add sample outreach emails
         for job in jobs[:2]:  # Only for first two jobs
             outreach = Outreach(
@@ -150,12 +151,12 @@ Best regards,
 Jason Jones
 Tellen""",
                 status="draft",
-                firm_contact="hiring@company.com"
+                firm_contact="hiring@company.com",
             )
             db.add(outreach)
-        
+
         db.commit()
-        
+
     except Exception as e:
         print(f"Error initializing database: {e}")
         db.rollback()

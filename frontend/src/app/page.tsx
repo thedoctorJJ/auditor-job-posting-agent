@@ -10,9 +10,6 @@ import {
   Users, 
   Mail, 
   TrendingUp, 
-  CheckCircle, 
-  Clock, 
-  XCircle,
   AlertCircle
 } from 'lucide-react';
 
